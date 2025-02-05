@@ -1,11 +1,50 @@
-const jsonServer = require('json-server');
+const express = require('express');
+const app = express();
+const port = 3000;
 
-const server = jsonServer.create();
-const router = jsonServer.router('server.json');
-const middlewares = jsonServer.defaults();
+const data = {
+    cube: {
+        color: "#ff0000",
+        position: {
+            x: 0,
+            y: 0,
+            z: 0
+        }
+    },
+    light: {
+        intensity: 1,
+        position: {
+            x: 10,
+            y: 10,
+            z: 10
+        }
+    },
+    background: {
+        color: "#ffffff"
+    }
+};
 
-server.use(middlewares);
-server.use(router);
-server.listen(3000, () => {
-    console.log('JSON Server is running')
+// Rota raiz
+app.get('/', (req, res) => {
+    res.send('Bem-vindo à API 3D Picker! Use os endpoints /cube, /light e /background.');
+});
+
+// Endpoint para obter dados do cubo
+app.get('/cube', (req, res) => {
+    res.json(data.cube);
+});
+
+// Endpoint para obter dados da luz
+app.get('/light', (req, res) => {
+    res.json(data.light);
+});
+
+// Endpoint para obter dados do fundo
+app.get('/background', (req, res) => {
+    res.json(data.background);
+});
+
+// Iniciar o servidor
+app.listen(port, () => {
+    console.log(`Servidor rodando na porta ${port}`);
 });
