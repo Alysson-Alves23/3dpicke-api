@@ -1,165 +1,58 @@
-require('dotenv').config(); // Carrega variáveis de ambiente
 const express = require('express');
-const { Pool } = require('pg');
-
 const app = express();
-const port = process.env.PORT || 3000;
+const port = 3000;
 
-// Configuração do banco de dados PostgreSQL
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }
-});
+app.use(express.json()); // Middleware para permitir JSON no corpo da requisição
 
-// Middleware para JSON
-app.use(express.json());
-
-// 🛠️ Criar tabelas caso não existam
-const createTables = async () => {
-    try {
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS cube (
-                                                id SERIAL PRIMARY KEY,
-                                                color VARCHAR(7) DEFAULT '#ff0000',
-                position_x FLOAT DEFAULT 0,
-                position_y FLOAT DEFAULT 0,
-                position_z FLOAT DEFAULT 0,
-                rotation_x FLOAT DEFAULT 0,
-                rotation_y FLOAT DEFAULT 0,
-                rotation_z FLOAT DEFAULT 0
-                );
-            CREATE TABLE IF NOT EXISTS light (
-                                                 id SERIAL PRIMARY KEY,
-                                                 intensity FLOAT DEFAULT 1
-            );
-            CREATE TABLE IF NOT EXISTS background (
-                                                      id SERIAL PRIMARY KEY,
-                                                      color VARCHAR(7) DEFAULT '#ffffff'
-                );
-        `);
-        console.log("✅ Tabelas verificadas/criadas");
-
-        // Criar valores iniciais se não existirem
-        await pool.query(`
-            INSERT INTO cube (color, position_x, position_y, position_z, rotation_x, rotation_y, rotation_z)
-            SELECT '#4e2d2d', 1.5, -0.4, 2, 3.067, -0.334, -3.074
-                WHERE NOT EXISTS (SELECT 1 FROM cube);
-
-            INSERT INTO light (intensity)
-            SELECT 3.4 WHERE NOT EXISTS (SELECT 1 FROM light);
-
-            INSERT INTO background (color)
-            SELECT '#b89494' WHERE NOT EXISTS (SELECT 1 FROM background);
-        `);
-        console.log("✅ Dados iniciais inseridos (se necessário)");
-    } catch (err) {
-        console.error("Erro ao criar tabelas:", err);
+const data = {
+    cube: {
+        color: "#ff0000",
+        position: {
+            x: 0,
+            y: 0,
+            z: 0
+        },
+        rotation: {
+            x: 0,
+            y: 0,
+            z: 0
+        }
+    },
+    light: {
+        intensity: 1
+    },
+    background: {
+        color: "#ffffff"
     }
 };
-createTables();
 
-// 📌 Função para obter os dados mantendo a estrutura JSON correta
-const getStructuredData = async () => {
-    const cube = (await pool.query("SELECT * FROM cube LIMIT 1")).rows[0];
-    const light = (await pool.query("SELECT * FROM light LIMIT 1")).rows[0];
-    const background = (await pool.query("SELECT * FROM background LIMIT 1")).rows[0];
-
-    return {
-        cube: cube
-            ? {
-                color: cube.color,
-                position: { x: cube.position_x, y: cube.position_y, z: cube.position_z },
-                rotation: { x: cube.rotation_x, y: cube.rotation_y, z: cube.rotation_z }
-            }
-            : null,
-        light: light ? { intensity: light.intensity } : null,
-        background: background ? { color: background.color } : null
-    };
-};
-
-// 🔹 Rota GET - Obter todos os dados
-app.get('/data', async (req, res) => {
-    const data = await getStructuredData();
-    res.json(data);
+// Rota raiz
+app.get('/', (req, res) => {
+    res.send('Bem-vindo à API 3D Picker! Use os endpoints /cube, /light e /background.');
 });
 
-// 🔹 Rota GET - Obter dados individuais
-app.get('/cube', async (req, res) => {
-    const data = await getStructuredData();
-    res.json(data.cube);
+// GET - Obter os dados
+app.get('/cube', (req, res) => res.json(data.cube));
+app.get('/light', (req, res) => res.json(data.light));
+app.get('/background', (req, res) => res.json(data.background));
+
+// PUT - Atualizar os dados
+app.put('/cube', (req, res) => {
+    data.cube = { ...data.cube, ...req.body }; // Atualiza apenas os campos enviados
+    res.json({ message: "Cubo atualizado", cube: data.cube });
 });
 
-app.get('/light', async (req, res) => {
-    const data = await getStructuredData();
-    res.json(data.light);
+app.put('/light', (req, res) => {
+    data.light = { ...data.light, ...req.body };
+    res.json({ message: "Luz atualizada", light: data.light });
 });
 
-app.get('/background', async (req, res) => {
-    const data = await getStructuredData();
-    res.json(data.background);
+app.put('/background', (req, res) => {
+    data.background = { ...data.background, ...req.body };
+    res.json({ message: "Fundo atualizado", background: data.background });
 });
 
-// 📌 Função para atualizar os dados
-const updateTable = async (table, updates, mapping) => {
-    const setClause = Object.keys(mapping)
-        .map((key, index) => `${mapping[key]} = $${index + 1}`)
-        .join(", ");
-
-    const values = Object.keys(mapping).map((key) => updates[key]);
-
-    await pool.query(`UPDATE ${table} SET ${setClause} WHERE id = 1 RETURNING *`, values);
-};
-
-// 🔹 Rota PUT - Atualizar dados gerais
-app.put('/data', async (req, res) => {
-    const { cube, light, background } = req.body;
-
-    if (cube) {
-        await updateTable("cube", cube, {
-            color: "color",
-            "position.x": "position_x",
-            "position.y": "position_y",
-            "position.z": "position_z",
-            "rotation.x": "rotation_x",
-            "rotation.y": "rotation_y",
-            "rotation.z": "rotation_z"
-        });
-    }
-    if (light) {
-        await updateTable("light", light, { intensity: "intensity" });
-    }
-    if (background) {
-        await updateTable("background", background, { color: "color" });
-    }
-
-    res.json(await getStructuredData());
-});
-
-// 🔹 Rota PUT - Atualizar partes individuais
-app.put('/cube', async (req, res) => {
-    await updateTable("cube", req.body, {
-        color: "color",
-        "position.x": "position_x",
-        "position.y": "position_y",
-        "position.z": "position_z",
-        "rotation.x": "rotation_x",
-        "rotation.y": "rotation_y",
-        "rotation.z": "rotation_z"
-    });
-    res.json(await getStructuredData());
-});
-
-app.put('/light', async (req, res) => {
-    await updateTable("light", req.body, { intensity: "intensity" });
-    res.json(await getStructuredData());
-});
-
-app.put('/background', async (req, res) => {
-    await updateTable("background", req.body, { color: "color" });
-    res.json(await getStructuredData());
-});
-
-// Iniciar servidor
+// Iniciar o servidor
 app.listen(port, () => {
-    console.log(`🚀 Servidor rodando na porta ${port}`);
+    console.log(`Servidor rodando na porta ${port}`);
 });
