@@ -8,7 +8,7 @@ const port = process.env.PORT || 3000;
 // Configuração do banco de dados PostgreSQL
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: process.env.DATABASE_URL.includes("localhost") ? false : { rejectUnauthorized: false } // Para conexões seguras no deploy
+    ssl: { rejectUnauthorized: false }
 });
 
 // Middleware para JSON
@@ -19,35 +19,35 @@ const createTables = async () => {
     try {
         await pool.query(`
             CREATE TABLE IF NOT EXISTS cube (
-                id SERIAL PRIMARY KEY,
-                color VARCHAR(7) DEFAULT '#ff0000',
+                                                id SERIAL PRIMARY KEY,
+                                                color VARCHAR(7) DEFAULT '#ff0000',
                 position_x FLOAT DEFAULT 0,
                 position_y FLOAT DEFAULT 0,
                 position_z FLOAT DEFAULT 0,
                 rotation_x FLOAT DEFAULT 0,
                 rotation_y FLOAT DEFAULT 0,
                 rotation_z FLOAT DEFAULT 0
-            );
+                );
             CREATE TABLE IF NOT EXISTS light (
-                id SERIAL PRIMARY KEY,
-                intensity FLOAT DEFAULT 1
+                                                 id SERIAL PRIMARY KEY,
+                                                 intensity FLOAT DEFAULT 1
             );
             CREATE TABLE IF NOT EXISTS background (
-                id SERIAL PRIMARY KEY,
-                color VARCHAR(7) DEFAULT '#ffffff'
-            );
+                                                      id SERIAL PRIMARY KEY,
+                                                      color VARCHAR(7) DEFAULT '#ffffff'
+                );
         `);
         console.log("✅ Tabelas verificadas/criadas");
 
         // Criar valores iniciais se não existirem
         await pool.query(`
             INSERT INTO cube (color, position_x, position_y, position_z, rotation_x, rotation_y, rotation_z)
-            SELECT '#4e2d2d', 1.5, -0.4, 2, 3.067486702812208, -0.33403476210291555, -3.0741523125287005
-            WHERE NOT EXISTS (SELECT 1 FROM cube);
-            
+            SELECT '#4e2d2d', 1.5, -0.4, 2, 3.067, -0.334, -3.074
+                WHERE NOT EXISTS (SELECT 1 FROM cube);
+
             INSERT INTO light (intensity)
             SELECT 3.4 WHERE NOT EXISTS (SELECT 1 FROM light);
-            
+
             INSERT INTO background (color)
             SELECT '#b89494' WHERE NOT EXISTS (SELECT 1 FROM background);
         `);
@@ -58,7 +58,7 @@ const createTables = async () => {
 };
 createTables();
 
-// 📌 Função para obter dados e manter estrutura JSON
+// 📌 Função para obter os dados mantendo a estrutura JSON correta
 const getStructuredData = async () => {
     const cube = (await pool.query("SELECT * FROM cube LIMIT 1")).rows[0];
     const light = (await pool.query("SELECT * FROM light LIMIT 1")).rows[0];
@@ -77,10 +77,26 @@ const getStructuredData = async () => {
     };
 };
 
-// 🔹 Rota GET - Obter todos os dados mantendo a estrutura JSON
+// 🔹 Rota GET - Obter todos os dados
 app.get('/data', async (req, res) => {
     const data = await getStructuredData();
     res.json(data);
+});
+
+// 🔹 Rota GET - Obter dados individuais
+app.get('/cube', async (req, res) => {
+    const data = await getStructuredData();
+    res.json(data.cube);
+});
+
+app.get('/light', async (req, res) => {
+    const data = await getStructuredData();
+    res.json(data.light);
+});
+
+app.get('/background', async (req, res) => {
+    const data = await getStructuredData();
+    res.json(data.background);
 });
 
 // 📌 Função para atualizar os dados
@@ -94,7 +110,7 @@ const updateTable = async (table, updates, mapping) => {
     await pool.query(`UPDATE ${table} SET ${setClause} WHERE id = 1 RETURNING *`, values);
 };
 
-// 🔹 Rota PUT - Atualizar dados mantendo a estrutura JSON
+// 🔹 Rota PUT - Atualizar dados gerais
 app.put('/data', async (req, res) => {
     const { cube, light, background } = req.body;
 
@@ -116,6 +132,30 @@ app.put('/data', async (req, res) => {
         await updateTable("background", background, { color: "color" });
     }
 
+    res.json(await getStructuredData());
+});
+
+// 🔹 Rota PUT - Atualizar partes individuais
+app.put('/cube', async (req, res) => {
+    await updateTable("cube", req.body, {
+        color: "color",
+        "position.x": "position_x",
+        "position.y": "position_y",
+        "position.z": "position_z",
+        "rotation.x": "rotation_x",
+        "rotation.y": "rotation_y",
+        "rotation.z": "rotation_z"
+    });
+    res.json(await getStructuredData());
+});
+
+app.put('/light', async (req, res) => {
+    await updateTable("light", req.body, { intensity: "intensity" });
+    res.json(await getStructuredData());
+});
+
+app.put('/background', async (req, res) => {
+    await updateTable("background", req.body, { color: "color" });
     res.json(await getStructuredData());
 });
 
