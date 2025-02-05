@@ -9,7 +9,10 @@
   },
   "private": true,
   "dependencies": {
+    "dotenv": "^16.4.7",
     "express": "^4.21.2",
-    "json-server": "^1.0.0-beta.3"
+    "json-server": "^1.0.0-beta.3",
+    "mongoose": "^8.9.7",
+    "vercel": "^41.0.0"
   }
 }
