@@ -2,9 +2,9 @@
   "name": "3dpicker-ap1",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
-    "build": "json-server --watch server.json",
+    "start": "node server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "private": true,
