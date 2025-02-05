@@ -1,0 +1,14 @@
+{
+  "name": "3dpicker-ap1",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "json-server --watch server.json",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "private": true,
+  "dependencies": {
+    "json-server": "^1.0.0-beta.3"
+  }
+}
