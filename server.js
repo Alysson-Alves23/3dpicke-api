@@ -9,15 +9,15 @@ const data = {
             x: 0,
             y: 0,
             z: 0
+        },
+        rotation: {
+            x: 0,
+            y: 0,
+            z: 0
         }
     },
     light: {
-        intensity: 1,
-        position: {
-            x: 10,
-            y: 10,
-            z: 10
-        }
+        intensity: 1
     },
     background: {
         color: "#ffffff"
